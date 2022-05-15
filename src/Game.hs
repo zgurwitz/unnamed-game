@@ -15,27 +15,18 @@ import Data.Maybe (fromMaybe, isJust, fromJust, isNothing)
 import Data.List (nub)
 import Data.Map (Map, foldrWithKey, insert, lookup)
 import qualified Data.Map as Map
---import System.Random (Random(..), newStdGen, fromList)
+
 
 import Enemy (chase)
 import Datas
 
---type Loc = (Int, Int)
-
---type Stage = Map Loc Object
 
 type Inventory = Map Item Int
 
 data Action = Move | Fire | Inv
   deriving (Eq, Show)
 
---data Item = Bullet | Life | Speed | Teleport
---  deriving (Eq, Show, Ord)
 
---data Object = Player | Enemy | Obstacle | Goal | Projectile Direction | Collectable Item | Vacant | Boom
---  deriving (Eq)
-
---data S = State (Maybe Game) Game
   
 instance Show Object where
   show Player = "@"
@@ -50,8 +41,6 @@ instance Show Object where
 data End = Won | Lost | Ongoing 
   deriving (Eq, Show)
 
---data Direction = North | South | East | West | Stay
---  deriving (Eq, Show)
 
 data Stream a = a :| Stream a
   deriving (Show)
@@ -63,7 +52,7 @@ data Game = Game
   , _done  :: End
   , _inventory :: Inventory
   , _action :: Action
---  , _spawn :: Stream Loc 
+
   } deriving (Eq)
 
 data MobileEntity = IsPlayer | IsEnemy | IsProjectile
