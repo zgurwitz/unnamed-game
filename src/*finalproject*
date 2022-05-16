@@ -1,0 +1,34 @@
+Your wish is my IO ().
+If I break, you can:
+  1. Restart:           M-x haskell-process-restart
+  2. Configure logging: C-h v haskell-process-log (useful for debugging)
+  3. General config:    M-x customize-mode
+  4. Hide these tips:   C-h v haskell-process-show-debug-tips
+λ> :r
+Ok, one module loaded.
+λ> i = emptyStage (2,2)
+λ> i
+[[ , ],[ , ]]
+λ> getAtStage (0,0)
+getAtStage (0,0) :: Stage -> Maybe Object
+λ> getAtStage (0,0) i
+Just  
+λ> :r
+[1 of 1] Compiling Game             ( /home/smarty99935/CMSC488B/finalProject/src/Game.hs, interpreted )
+Ok, one module loaded.
+Collecting type info for 1 module(s) ... 
+λ> i = emptyStage (2,2)
+λ> getAtStage (0,0) i
+Just -
+λ> i
+[[-,-],[-,-]]
+λ> insertObject Player (0,0) i
+[[@,-],[-,-]]
+λ> insertObject Player (1,0) i
+[[-,-],[@,-]]
+λ> insertObject Player (0,1) i
+[[-,@],[-,-]]
+λ> insertObject Player (1,1) i
+[[-,-],[-,@]]
+λ> i = insertObject Player (1,1) i
+λ> 
