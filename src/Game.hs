@@ -15,28 +15,20 @@ import Data.Maybe (fromMaybe, isJust, fromJust, isNothing)
 import Data.List (nub)
 import Data.Map (Map, foldrWithKey, insert, lookup)
 import qualified Data.Map as Map
+import System.Random
 
-
-import Enemy (chase)
+import Enemy (chase, chase')
 import Datas
+import Search
 
 
 type Inventory = Map Item Int
+
 
 data Action = Move | Fire | Inv
   deriving (Eq, Show)
 
 
-  
-instance Show Object where
-  show Player = "@"
-  show Enemy = "><"
-  show Obstacle = "X"
-  show Goal = "F"
-  show (Projectile _) = "*"
-  show (Collectable x) = show x 
-  show Vacant = "-"
-  show Boom = "BOOM"
 
 data End = Won | Lost | Ongoing 
   deriving (Eq, Show)
@@ -47,15 +39,17 @@ data Stream a = a :| Stream a
 
 data Game = Game
   { _player :: Loc
+  , _goal :: Loc
   , _stage :: Stage
   , _stageDim :: Loc
   , _done  :: End
   , _inventory :: Inventory
   , _action :: Action
+  , _score :: Int
 
-  } deriving (Eq)
+  } deriving (Eq, Show)
 
-data MobileEntity = IsPlayer | IsEnemy | IsProjectile
+
 
 makeLenses ''Game
 
@@ -64,35 +58,10 @@ makeLenses ''Game
 emptyStage :: (Int, Int) -> Stage
 emptyStage (x,y) = foldr (flip Map.insert Vacant) Map.empty [(x',y') | x' <- [0..x-1], y'<- [0..y-1]]
 
-getAtStage :: Loc -> Stage -> Maybe Object
-getAtStage l s = s ^. (at l)
-
 insertObject :: Object -> Loc -> Stage -> Stage
 insertObject o p s = s & ix p .~ o
 
---game locationToMoveTo isPlayer
-canMoveHere :: Stage -> Loc -> MobileEntity -> Bool
-canMoveHere s l me = case (getAtStage l s , me) of
-  (Just Player , _ )-> True
-  (Just Enemy , IsEnemy) -> False
-  (Just Enemy , _) -> True
-  (Just Obstacle , _) -> False
-  (Just Goal , IsEnemy) -> False
-  (Just Goal , _) -> True
-  (Just Vacant , _) -> True
-  (Just Boom, _) -> True
-  (Just (Projectile _), _) -> True
-  (Nothing , _)-> False
 
-nudge :: Loc -> Direction -> Loc
-nudge (x,y) d = case d of
-  Stay -> (x,y)
-  North -> (x, y-1)
-  South -> (x, y+1)
-  East -> (x+1,y)
-  West -> (x-1,y)
-
---TODO see if to lethal/victorious square 
 movePlayer :: Direction -> Game -> Maybe Game
 movePlayer d g | canMoveHere (g ^. stage) (nudge (g ^. player) d) IsPlayer = case getAtStage (nudge (g ^. player) d) (g ^. stage) of
   Just (Projectile _) -> g & stage %~ insertObject Vacant (g ^. player)
@@ -121,6 +90,11 @@ movePlayer d g | canMoveHere (g ^. stage) (nudge (g ^. player) d) IsPlayer = cas
                            & player %~ flip nudge d
                            & Just
 movePlayer _ _ = Nothing
+
+deleteBooms :: Stage -> Stage
+deleteBooms s = foldrWithKey f Map.empty s where
+  f k Boom s' = insert k (Collectable Bullet) s'
+  f k o s' = insert k o s' 
 
 --TODO see if hits me
 fire :: Direction -> Game -> Maybe Game
@@ -166,8 +140,8 @@ moveNPE g = g & stage %~ moveProjectiles
 cycleAction :: Game -> Game
 cycleAction g = case g ^. action of
   Move -> g & action .~ Fire
-  Fire -> g & action .~ Inv
-  Inv -> g & action .~ Move
+  Fire -> g & action .~ Move
+--  Inv -> g & action .~ Move
 
 setAction :: Action -> Game -> Game
 setAction a g = g & action .~ a
@@ -178,9 +152,9 @@ moveEnemy :: Loc -> Loc -> Stage -> Stage
 moveEnemy enemy player s = case (Map.lookup goto s, canMoveHere s goto IsEnemy) of
   (Just Player, True) -> insert goto Boom $ insert enemy Vacant s
   (Just (Projectile _), True) -> insert goto Boom $ insert enemy Vacant s
-  (Just Vacant, True) -> insert goto Enemy $ insert enemy Vacant s
+  (Just _, True) -> insert goto Enemy $ insert enemy Vacant s
   (_, False) -> s
-  where goto = nudge enemy (chase enemy player s)
+  where goto = nudge enemy (chase' enemy player s)
 
 moveEnemyList :: [Loc] -> Loc -> Stage -> Stage
 moveEnemyList (x:xs) player s = moveEnemyList xs player (moveEnemy x player s)
@@ -206,32 +180,76 @@ addItems i n inv = inv & at i . non 0 %~ (+n)
 step :: Game -> Game
 step = id
 
-playerAction :: Action -> Direction -> Game -> Game
-playerAction Fire d g = if fire d g == Nothing then g else (fromJust $ fire d g) & stage %~ moveEnemies (g ^. player)
-                                                                                 & stage %~ moveProjectiles
-playerAction Move d g = if movePlayer d g == Nothing then g else moveNPE (fromJust $ movePlayer d g)
+newLevel :: Game -> End -> IO Game
+newLevel g Won = do
+  g' <- randomGame
+  return $ g' & score .~ ((g ^. score) + 10)
+newLevel g _ = randomGame
+ 
+checkAliveAfterAction :: Action -> Direction -> Game -> Game
+checkAliveAfterAction a d g = if not (getAtStage (g' ^. player) (g' ^. stage) == Just Player) 
+  then g' & player .~ (-1,-1)
+          & done .~ Lost  
+  else g' where
+    g' = playerAction a d g
 
---spawnEntity :: Object -> Game -> Game
---spawnEntity o g = g & stage %~ insert (head spawn) o
---                    & spawn %~ fromJust . snd . uncons
+playerAction :: Action -> Direction -> Game -> Game
+playerAction Fire d g = if fire d g == Nothing then g else (fromJust $ fire d g) & stage %~ deleteBooms
+                                                                                 & stage %~ moveEnemies (g ^. player)
+                                                                                 & stage %~ moveProjectiles
+playerAction Move d g = if movePlayer d g == Nothing then g else moveNPE (fromJust $ movePlayer d g) & stage %~ deleteBooms
+
+showItem :: Inventory -> Item -> String 
+showItem inv Bullet 
+  | bulletCount == Nothing || bulletCount == Just 0 = []
+  | otherwise = '*':showItem (insert Bullet ((fromJust bulletCount) - 1) inv) Bullet
+  where bulletCount = Map.lookup Bullet inv 
 
 sampleGame :: Game
 sampleGame = Game {
     _player = (1,2)
-  , _stage = insertObject Obstacle (8,7) $ insertObject Obstacle (7,7) $ insertObject Obstacle (6,7) $ insertObject Obstacle (5,7) $ insertObject Obstacle (4,7) $ insertObject Obstacle (3,4) $ insertObject Enemy (5,5) $ insertObject Goal (1,3) $ insertObject Player (1,2) (emptyStage (10,10))
+  , _goal = (1,3)
+  , _stage = insertObject Obstacle (8,7) $ insertObject Obstacle (7,7) $ insertObject Obstacle (6,7) $ insertObject Obstacle (5,7) $ insertObject Obstacle (4,7) $ insertObject Obstacle (3,4) $ insertObject Enemy (9,9) $ insertObject Goal (1,3) $ insertObject Player (1,2) (emptyStage (10,10))
   , _stageDim = (10,10)
   , _done = Ongoing
   , _inventory = addItems Bullet 999 Map.empty 
   , _action = Move
---  , _spawn = singleton (-1,-1)
+  , _score = 0
   }
+
+randomGame :: IO Game
+randomGame = do  
+  g <- newStdGen
+  let xStage = head (randomRs (30,20) g)
+  let yStage = head (randomRs (30,20) g)
+  p <- randomLoc (xStage, yStage)
+  let s = insertObject Player p (emptyStage (xStage, yStage))
+  let oNum = head (randomRs (15, div (xStage*yStage) 5) g)  
+  obs <- sequence $ randomLegalLocs oNum s (xStage,yStage)
+  goal <- randomLegalLoc s (xStage, yStage)
+  let eNum = head (randomRs (1,4) g)
+  enemies <- sequence $ randomLegalLocs eNum s (xStage,yStage)
+  
+  return $ Game {
+      _player = p
+    , _goal = goal
+    , _stage = insertObject Goal goal $ foldr (\a b -> insertObject Enemy a b) (foldr (\a b -> insertObsNotSoftLocked a p  goal b) s obs) enemies 
+    , _stageDim = (xStage, yStage)
+    , _done = Ongoing
+    , _inventory = addItems Bullet (eNum + 2) Map.empty
+    , _action = Move
+    , _score = 0
+  } 
+
+insertObsNotSoftLocked :: Loc -> Loc -> Loc -> Stage -> Stage
+insertObsNotSoftLocked target player goal s = if not (sch == Nothing || sch == Just Stay)
+                           then s' 
+                           else s'
+                           where s' = insertObject Obstacle target s 
+                                 sch = Search.gBFS (s') (player) (goal) IsPlayer 
+  
+
 
 initGame :: IO Game
 initGame = do
---  (o :| os) <- fromList . randomRs (V2 0 0, V2 (fst (sampleGame ^. stageDim) -1) (snd(sampleGame ^. stageDim) -1)) <$> newStdGen 
-  return $ sampleGame -- & spawn .~ os
-
-
-
-main = do
-  putStrLn "Hello"
+  randomGame 
