@@ -21,7 +21,7 @@ chase enemy player s = if canMove (nudge enemy (direct enemy player)) s then dir
 chase' :: Loc -> Loc -> Stage -> Direction
 chase' enemy player s = case gBFS s enemy player IsEnemy of
   Nothing -> Stay
-  Just d -> d
+  Just d -> oppo d
 
 canMove :: Loc -> Stage -> Bool
 canMove l s = case Map.lookup l s of
@@ -39,3 +39,7 @@ direct (a,b) (c,d) = if abs (a-c) > abs (b-d)
                           else if (b-d) > 0
                                then North
                                else South
+
+
+
+  
