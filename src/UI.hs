@@ -4,7 +4,7 @@ module UI where
 import Control.Monad (forever, void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Concurrent (threadDelay, forkIO)
-
+import System.IO.Unsafe
 import Game
 import Datas
 import Brick
@@ -65,31 +65,58 @@ main = do
 -- Handling events
 
 handleEvent :: Game -> BrickEvent Name Tick -> EventM Name (Next Game)
-handleEvent g ev = case (g ^. action, ev) of
-  (_, AppEvent Tick) -> continue $ step g
-  (_, (VtyEvent (V.EvKey (V.KChar 'q') []))) -> halt g
-  (_, (VtyEvent (V.EvKey (V.KChar 'c') []))) -> continue $ cycleAction g
-  (Move, (VtyEvent (V.EvKey V.KUp    []))) -> continue $ playerAction Move North g
-  (Move, (VtyEvent (V.EvKey V.KDown    []))) -> continue $ playerAction Move South g
-  (Move, (VtyEvent (V.EvKey V.KRight    []))) -> continue $ playerAction Move East g
-  (Move, (VtyEvent (V.EvKey V.KLeft    []))) -> continue $ playerAction Move West g
-  (Fire, (VtyEvent (V.EvKey V.KUp    []))) -> continue $ playerAction Fire North g
-  (Fire, (VtyEvent (V.EvKey V.KDown    []))) -> continue $ playerAction Fire South g
-  (Fire, (VtyEvent (V.EvKey V.KRight    []))) -> continue $ playerAction Fire East g
-  (Fire, (VtyEvent (V.EvKey V.KLeft    []))) -> continue $ playerAction Move West g
+handleEvent g ev = case (g ^. action, g ^. done, ev) of
+  (_, _,AppEvent Tick) -> continue $ step g
+  (_, _,(VtyEvent (V.EvKey (V.KChar 'q') []))) -> halt g
+  (_, Ongoing, (VtyEvent (V.EvKey (V.KChar 'c') []))) -> continue $ cycleAction g
+  (Move, Ongoing, (VtyEvent (V.EvKey V.KUp    []))) -> continue $ checkAliveAfterAction Move North g
+  (Move, Ongoing, (VtyEvent (V.EvKey V.KDown    []))) -> continue $ checkAliveAfterAction Move South g
+  (Move, Ongoing, (VtyEvent (V.EvKey V.KRight    []))) -> continue $ checkAliveAfterAction Move East g
+  (Move, Ongoing, (VtyEvent (V.EvKey V.KLeft    []))) -> continue $ checkAliveAfterAction Move West g
+  (Move, Ongoing, (VtyEvent (V.EvKey (V.KChar 'x') []))) -> continue $ checkAliveAfterAction Move Stay g
+  (Fire, Ongoing, (VtyEvent (V.EvKey V.KUp    []))) -> continue $ checkAliveAfterAction Fire North g
+  (Fire, Ongoing, (VtyEvent (V.EvKey V.KDown    []))) -> continue $ checkAliveAfterAction Fire South g
+  (Fire, Ongoing, (VtyEvent (V.EvKey V.KRight    []))) -> continue $ checkAliveAfterAction Fire East g
+  (Fire, Ongoing, (VtyEvent (V.EvKey V.KLeft    []))) -> continue $ checkAliveAfterAction Fire West g
+  (_, Won, (VtyEvent (V.EvKey V.KEnter         []))) -> continue $ unsafePerformIO (newLevel g Won) 
+  (_, Lost, (VtyEvent (V.EvKey V.KEnter         []))) -> continue $ unsafePerformIO (newLevel g Lost) 
   otherwise -> continue g
 
 drawUI :: Game -> [Widget Name]
 drawUI g = [vBox [ withBorderStyle BS.unicodeBold
                    $ B.borderWithLabel (str "Game")
                    $ drawGrid g
-                 , drawGameOver g ]]
+                 , drawAction g
+                 , drawInv g
+                 , drawScore g
+                 , drawAdvance g
+                 , drawGameOver g 
+                 , drawRules]]
 
 drawGameOver :: Game -> Widget Name
 drawGameOver g
   | g ^. done == Lost = str "You Lose!"
   | g ^. done == Won = str "You Win!"
   | otherwise = emptyWidget
+
+--currently only draws bullets
+drawInv :: Game -> Widget Name
+drawInv g = str $ showItem (g ^. inventory) Bullet 
+
+drawAction :: Game -> Widget Name
+drawAction g = str $ show $ g ^. action
+
+drawScore :: Game -> Widget Name
+drawScore g = str $ "Score: " ++ ( show $ g ^. score)
+
+drawAdvance :: Game -> Widget Name
+drawAdvance g 
+  | g ^. done == Won = str "Well done! Press Enter to go to next stage."
+  | g ^. done == Lost = str "Good try! Press Enter to restart."
+  | otherwise = str ""
+
+drawRules :: Widget Name
+drawRules = str $ "-----------------------------------------------\nCONTROLS:\nYou are the (@)\nUse the arrow keys to move/fire, or 'x' to pass your move. \nUse 'c' to change from moving to firing. \nDon't touch the enemies (e) and try to get to the goal (f)! \n(0)s are Bullets that you can pick up to shoot at enemies.\n(x)s are abstacles. You can't move onto them, but neither can your enemies!\nPress (q) to exit at any time"
 
 drawGrid :: Game -> Widget Name
 drawGrid g = vBox rows where
