@@ -24,7 +24,10 @@ dependencies:
 - lens
 - containers
 - transformers
-
+- vty 
+- brick
+- random
+- QuickCheck
 
 library:
   source-dirs: src
