@@ -13,6 +13,10 @@ Don't touch the enemies (e) and try to get to the goal (f)!
 (x)s are abstacles. You can't move onto them, but neither can your enemies!
 Press (q) to exit at any time
 
+# How to run the game
+Use `stack run`.
+
+
 # Future Plans
 -Other items
 
