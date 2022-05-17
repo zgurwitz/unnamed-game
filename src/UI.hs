@@ -51,8 +51,8 @@ app = App { appDraw = drawUI
           , appAttrMap = const theMap
           }
 
-main :: IO ()
-main = do
+run :: IO ()
+run = do
   chan <- newBChan 10
   forkIO $ forever $ do
     writeBChan chan Tick
@@ -73,6 +73,7 @@ handleEvent g ev = case (g ^. action, g ^. done, ev) of
   (Move, Ongoing, (VtyEvent (V.EvKey V.KDown    []))) -> continue $ checkAliveAfterAction Move South g
   (Move, Ongoing, (VtyEvent (V.EvKey V.KRight    []))) -> continue $ checkAliveAfterAction Move East g
   (Move, Ongoing, (VtyEvent (V.EvKey V.KLeft    []))) -> continue $ checkAliveAfterAction Move West g
+  (Move, Ongoing, (VtyEvent (V.EvKey (V.KChar 'x') []))) -> continue $ checkAliveAfterAction Move Stay g
   (Fire, Ongoing, (VtyEvent (V.EvKey V.KUp    []))) -> continue $ checkAliveAfterAction Fire North g
   (Fire, Ongoing, (VtyEvent (V.EvKey V.KDown    []))) -> continue $ checkAliveAfterAction Fire South g
   (Fire, Ongoing, (VtyEvent (V.EvKey V.KRight    []))) -> continue $ checkAliveAfterAction Fire East g
@@ -115,7 +116,7 @@ drawAdvance g
   | otherwise = str ""
 
 drawRules :: Widget Name
-drawRules = str $ "-----------------------------------------------\nCONTROLS:\nYou are the (@)\nUse the arrow keys to move/fire. \nUse 'c' to change from moving to firing. \nDon't touch the enemies (e) and try to get to the goal (f)! \n(0)s are Bullets that you can pick up to shoot at enemies.\n(x)s are abstacles. You can't move onto them, but neither can your enemies!\nPress (q) to exit at any time"
+drawRules = str $ "-----------------------------------------------\nCONTROLS:\nYou are the (@)\nUse the arrow keys to move/fire, or 'x' to pass your move. \nUse 'c' to change from moving to firing. \nDon't touch the enemies (e) and try to get to the goal (f)! \n(0)s are Bullets that you can pick up to shoot at enemies.\n(x)s are abstacles. You can't move onto them, but neither can your enemies!\nPress (q) to exit at any time"
 
 drawGrid :: Game -> Widget Name
 drawGrid g = vBox rows where

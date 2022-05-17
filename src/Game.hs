@@ -255,6 +255,3 @@ initGame = do
   randomGame 
 
 
-
-main = do
-  putStrLn "Hello"

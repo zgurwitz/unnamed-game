@@ -1,6 +1,6 @@
 module Main where
 
-import Lib
+import UI (run)
 
 main :: IO ()
-main = someFunc
+main = run

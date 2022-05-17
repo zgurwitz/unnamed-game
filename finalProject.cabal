@@ -31,7 +31,6 @@ library
       Lib
       Main
       Search
-      Tests
       UI
   other-modules:
       Paths_finalProject
@@ -71,6 +70,7 @@ test-suite finalProject-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Tests
       Paths_finalProject
   hs-source-dirs:
       test
