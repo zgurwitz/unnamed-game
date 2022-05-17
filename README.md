@@ -12,4 +12,9 @@ Don't touch the enemies (e) and try to get to the goal (f)!
 Press (q) to exit at any time
 
 # Future Plans
-If I continue, other items, inventory staying between levels, more enemy ai or and allowing enemies to fire projectiles would be added, and well as more ways to score points other than the 10 for beating a level.
+-Other items
+-Inventory staying between levels
+-More enemy ai
+-More enemy types (ranged?)
+-More ways to score points other than the 10 for beating a level.
+-Better UI
