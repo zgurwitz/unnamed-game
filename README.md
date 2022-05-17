@@ -13,8 +13,13 @@ Press (q) to exit at any time
 
 # Future Plans
 -Other items
+
 -Inventory staying between levels
+
 -More enemy ai
+
 -More enemy types (ranged?)
+
 -More ways to score points other than the 10 for beating a level.
+
 -Better UI
