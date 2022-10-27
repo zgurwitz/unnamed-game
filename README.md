@@ -3,7 +3,7 @@ Written as a final project in CMSC488B at UMD, may be posted on class website in
 A 2-D turn based shooter/strategy game.
 Written in haskell and UI uses brick.
 
-
+ 
 # Controls:
 You are the (@)
 Use the arrow keys to move/fire, or 'x' to pass your move. 
